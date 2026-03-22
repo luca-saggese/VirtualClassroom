@@ -120,6 +120,14 @@ export const generationItIT = {
     agentRevealTitle: 'I tuoi ruoli in aula',
     viewAgents: 'Visualizza ruoli',
     continue: 'Continua',
+    // Errori scaletta
+    outlineRetrying: 'Problema nella generazione della scaletta, nuovo tentativo...',
+    outlineEmptyResponse: 'Il modello non ha restituito una scaletta valida. Controlla la configurazione del modello e riprova',
+    outlineGenerateFailed: 'Generazione della scaletta fallita, riprova più tardi',
+    // Ricerca web
+    webSearching: 'Ricerca web',
+    webSearchingDesc: 'Ricerca sul web di informazioni aggiornate',
+    webSearchFailed: 'Ricerca web fallita',
   },
 } as const;
 
