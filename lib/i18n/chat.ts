@@ -139,3 +139,74 @@ export const chatEnUS = {
     stopListening: 'Stop recording',
   },
 } as const;
+
+export const chatItIT = {
+  chat: {
+    lecture: 'Lezione',
+    noConversations: 'Nessuna conversazione',
+    startConversation: "Digita un messaggio qui sotto per iniziare la chat",
+    noMessages: 'Nessun messaggio ancora',
+    ended: 'terminato',
+    unknown: 'Sconosciuto',
+    stopDiscussion: 'Interrompi discussione',
+    endQA: 'Termina Q&A',
+    tabs: {
+      lecture: 'Note',
+      chat: 'Chat',
+    },
+    lectureNotes: {
+      empty: 'Le note appariranno qui dopo la riproduzione della lezione',
+      emptyHint: 'Premi play per avviare la lezione',
+      pageLabel: 'Pagina {n}',
+      currentPage: 'Corrente',
+    },
+    badge: {
+      qa: 'Q&A',
+      discussion: 'DISC',
+      lecture: 'LEZ',
+    },
+  },
+  actions: {
+    names: {
+      spotlight: 'Faro',
+      laser: 'Puntatore laser',
+      wb_open: 'Apri lavagna',
+      wb_draw_text: 'Testo lavagna',
+      wb_draw_shape: 'Forma lavagna',
+      wb_draw_chart: 'Grafico lavagna',
+      wb_draw_latex: 'Formula lavagna',
+      wb_draw_table: 'Tabella lavagna',
+      wb_draw_line: 'Linea lavagna',
+      wb_clear: 'Svuota lavagna',
+      wb_delete: 'Elimina elemento',
+      wb_close: 'Chiudi lavagna',
+      discussion: 'Discussione in classe',
+    },
+    status: {
+      inputStreaming: 'In attesa',
+      inputAvailable: 'In esecuzione',
+      outputAvailable: 'Completato',
+      outputError: 'Errore',
+      outputDenied: 'Negato',
+      running: 'In esecuzione',
+      result: 'Completato',
+      error: 'Errore',
+    },
+  },
+  agentBar: {
+    readyToLearn: 'Pronto per imparare insieme?',
+    expandedTitle: "Configurazione dei ruoli in classe",
+    configTooltip: 'Clicca per configurare i ruoli della classe',
+  },
+  proactiveCard: {
+    discussion: 'Discussione',
+    join: 'Partecipa',
+    skip: 'Salta',
+    pause: 'Pausa',
+    resume: 'Riprendi',
+  },
+  voice: {
+    startListening: 'Input vocale',
+    stopListening: 'Ferma registrazione',
+  },
+} as const;

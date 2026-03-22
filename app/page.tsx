@@ -331,14 +331,14 @@ function HomePage() {
       >
         {/* Language Selector */}
         <div className="relative">
-          <button
+            <button
             onClick={() => {
               setLanguageOpen(!languageOpen);
               setThemeOpen(false);
             }}
             className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
           >
-            {locale === 'zh-CN' ? 'CN' : 'EN'}
+            {locale === 'zh-CN' ? 'CN' : locale === 'it-IT' ? 'IT' : 'EN'}
           </button>
           {languageOpen && (
             <div className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50 min-w-[120px]">
@@ -367,6 +367,19 @@ function HomePage() {
                 )}
               >
                 English
+              </button>
+              <button
+                onClick={() => {
+                  setLocale('it-IT');
+                  setLanguageOpen(false);
+                }}
+                className={cn(
+                  'w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors',
+                  locale === 'it-IT' &&
+                    'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400',
+                )}
+              >
+                Italiano
               </button>
             </div>
           )}
@@ -882,7 +895,7 @@ function GreetingBar() {
                         }}
                         onBlur={commitName}
                         maxLength={20}
-                        placeholder={t('profile.defaultNickname')}
+                        placeholder={t('ultNickname')}
                         className="flex-1 min-w-0 h-6 bg-transparent border-b border-border/80 text-[13px] font-semibold text-foreground outline-none placeholder:text-muted-foreground/40"
                       />
                       <button

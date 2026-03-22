@@ -65,6 +65,64 @@ export const generationZhCN = {
   },
 } as const;
 
+export const generationItIT = {
+  classroom: {
+    recentClassrooms: 'Lezioni recenti',
+    today: 'Oggi',
+    yesterday: 'Ieri',
+    daysAgo: 'giorni fa',
+    slides: 'pagine',
+    nameCopied: 'Nome della lezione copiato',
+    deleteConfirmTitle: 'Elimina lezione',
+    delete: 'Elimina',
+  },
+  upload: {
+    pdfSizeLimit: 'Supporta PDF fino a 50MB',
+    generateFailed: 'Generazione della lezione fallita, riprova',
+    requirementPlaceholder:
+      "Inserisci ciò che vuoi imparare, ad es.:\n'Impara Python da zero, scrivi il primo programma in 30 minuti'\n'Usa la lavagna per spiegare la trasformata di Fourier'\n'Come si gioca ad Avalon'",
+    requirementRequired: 'Inserisci il requisito del corso',
+    fileTooLarge: 'File troppo grande, scegli un PDF < 50MB',
+  },
+  generation: {
+    analyzingPdf: 'Analizzando PDF',
+    analyzingPdfDesc: 'Estraendo struttura e contenuti del documento...',
+    pdfLoadFailed: 'Impossibile caricare il PDF, riprova',
+    pdfParseFailed: 'Parsing del PDF fallito',
+    streamNotReadable: "Impossibile leggere il flusso di generazione",
+    generatingOutlines: 'Generando la scaletta del corso',
+    generatingOutlinesDesc: 'Costruendo il percorso di apprendimento...',
+    generatingSlideContent: 'Generando contenuti delle pagine',
+    generatingSlideContentDesc: 'Creando slide, quiz e contenuti interattivi...',
+    generatingActions: 'Generando azioni didattiche',
+    generatingActionsDesc: "Ordinando spiegazioni, focus e flussi d'interazione...",
+    generationComplete: 'Generazione completata!',
+    generationFailed: 'Generazione fallita',
+    generatingCourse: 'Generazione del corso in corso',
+    openingClassroom: "Apertura della classe...",
+    outlineReady: 'Scaletta pronta',
+    generatingFirstPage: 'Generazione della prima pagina in corso...',
+    firstPageReady: 'Prima pagina pronta! Apertura della lezione...',
+    speechFailed: 'Sintesi vocale fallita',
+    retryScene: 'Ripeti generazione',
+    retryingScene: 'Riprovo a generare...',
+    backToHome: 'Torna alla home',
+    sessionNotFound: 'Sessione di generazione non trovata',
+    sessionNotFoundDesc: 'Compila il requisito del corso per iniziare il processo di generazione.',
+    goBackAndRetry: 'Torna indietro e riprova',
+    classroomReady: "Il tuo ambiente di apprendimento AI personalizzato è stato generato con successo.",
+    aiWorking: "Agenti AI al lavoro...",
+    textTruncated: 'Testo del documento troppo lungo, sono stati usati i primi {n} caratteri per la generazione',
+    imageTruncated: 'Il documento contiene {total} immagini, oltre il limite {max}; le immagini extra verranno trasmesse solo come descrizione testuale',
+    // Agent generation
+    agentGeneration: 'Generazione dei ruoli della lezione',
+    agentGenerationDesc: 'Generazione dei ruoli in base al contenuto del corso...',
+    agentRevealTitle: 'I tuoi ruoli in aula',
+    viewAgents: 'Visualizza ruoli',
+    continue: 'Continua',
+  },
+} as const;
+
 export const generationEnUS = {
   classroom: {
     recentClassrooms: 'Recent',

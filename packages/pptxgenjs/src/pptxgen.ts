@@ -454,15 +454,18 @@ export default class PptxGenJS implements IPresentationProps {
 
 		// STEP 2: Download file to browser
 		// DESIGN: Use `createObjectURL()` to D/L files in client browsers (FYI: synchronously executed)
-		if (window.URL.createObjectURL) {
-			const url = window.URL.createObjectURL(new Blob([blobContent], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
+		// Use a safe reference for URL to avoid DOM vs React-Native type conflicts
+		const URLRef: any = (typeof window !== 'undefined' && (window as any).URL) ? (window as any).URL : (globalThis as any).URL
+		if (URLRef && URLRef.createObjectURL) {
+			const blob = new Blob([blobContent], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', lastModified: Date.now() } as any)
+			const url = URLRef.createObjectURL(blob)
 			eleLink.href = url
 			eleLink.download = exportName
 			eleLink.click()
 
 			// Clean-up (NOTE: Add a slight delay before removing to avoid 'blob:null' error in Firefox Issue#81)
 			setTimeout(() => {
-				window.URL.revokeObjectURL(url)
+				if (URLRef.revokeObjectURL) URLRef.revokeObjectURL(url)
 				document.body.removeChild(eleLink)
 			}, 100)
 
