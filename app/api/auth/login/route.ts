@@ -1,7 +1,8 @@
+import type { NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
 import { authenticateUser, setAuthCookie } from '@/lib/server/auth';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       email?: string;
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const response = apiSuccess({ user: result.user });
-    setAuthCookie(response, result.user);
+    setAuthCookie(response, result.user, request);
     return response;
   } catch (error) {
     return apiError(

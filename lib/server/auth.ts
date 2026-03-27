@@ -150,6 +150,21 @@ export function createSessionToken(user: AuthUser): string {
   return `${encodedPayload}.${signature}`;
 }
 
+function shouldUseSecureCookies(request?: NextRequest): boolean {
+  const forceSecure = process.env.AUTH_COOKIE_SECURE;
+  if (forceSecure === 'true') return true;
+  if (forceSecure === 'false') return false;
+
+  const forwardedProto = request?.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  if (forwardedProto === 'https') return true;
+  if (forwardedProto === 'http') return false;
+
+  if (request?.nextUrl.protocol === 'https:') return true;
+  if (request?.nextUrl.protocol === 'http:') return false;
+
+  return process.env.NODE_ENV === 'production';
+}
+
 export function verifySessionToken(token: string | undefined | null): AuthUser | null {
   if (!token) return null;
   const [encodedPayload, signature] = token.split('.');
@@ -168,21 +183,21 @@ export function verifySessionToken(token: string | undefined | null): AuthUser |
   };
 }
 
-export function setAuthCookie(response: NextResponse, user: AuthUser) {
+export function setAuthCookie(response: NextResponse, user: AuthUser, request?: NextRequest) {
   response.cookies.set(AUTH_COOKIE_NAME, createSessionToken(user), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: shouldUseSecureCookies(request),
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
 }
 
-export function clearAuthCookie(response: NextResponse) {
+export function clearAuthCookie(response: NextResponse, request?: NextRequest) {
   response.cookies.set(AUTH_COOKIE_NAME, '', {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: shouldUseSecureCookies(request),
     path: '/',
     maxAge: 0,
   });
