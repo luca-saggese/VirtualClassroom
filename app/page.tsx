@@ -10,6 +10,7 @@ import {
   Clock,
   Copy,
   ImagePlus,
+  LogOut,
   Pencil,
   Trash2,
   Settings,
@@ -46,6 +47,7 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
+import type { AuthUser } from '@/lib/types/auth';
 
 const log = createLogger('Home');
 
@@ -87,7 +89,6 @@ function HomePage() {
   const [recentOpen, setRecentOpen] = useState(true);
 
   // Hydrate client-only state after mount (avoids SSR mismatch)
-  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
   useEffect(() => {
     setStoreHydrated(true);
     try {
@@ -119,7 +120,6 @@ function HomePage() {
       /* localStorage unavailable */
     }
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Restore requirement draft from cache (derived state pattern — no effect needed)
   const [prevCachedRequirement, setPrevCachedRequirement] = useState(cachedRequirement);
@@ -134,6 +134,7 @@ function HomePage() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -153,14 +154,53 @@ function HomePage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [languageOpen, themeOpen]);
 
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (!response.ok) return;
+      const data = (await response.json()) as { success?: boolean; user?: AuthUser };
+      if (data.success && data.user) {
+        setAuthUser(data.user);
+      }
+    } catch (err) {
+      log.warn('Failed to load current user:', err);
+    }
+  };
+
   const loadClassrooms = async () => {
     try {
-      const list = await listStages();
+      const [localList, serverResponse] = await Promise.all([
+        listStages(),
+        fetch('/api/classrooms', { cache: 'no-store' }).catch(() => null),
+      ]);
+
+      const serverList: StageListItem[] = [];
+      if (serverResponse?.ok) {
+        const data = (await serverResponse.json()) as {
+          success?: boolean;
+          classrooms?: StageListItem[];
+        };
+        if (data.success && Array.isArray(data.classrooms)) {
+          serverList.push(...data.classrooms);
+        }
+      }
+
+      const merged = new Map<string, StageListItem>();
+      [...serverList, ...localList]
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .forEach((classroom) => {
+          merged.set(classroom.id, classroom);
+        });
+
+      const list = Array.from(merged.values()).sort((a, b) => b.updatedAt - a.updatedAt);
       setClassrooms(list);
+
       // Load first slide thumbnails
-      if (list.length > 0) {
-        const slides = await getFirstSlideByStages(list.map((c) => c.id));
+      if (localList.length > 0) {
+        const slides = await getFirstSlideByStages(localList.map((c) => c.id));
         setThumbnails(slides);
+      } else {
+        setThumbnails({});
       }
     } catch (err) {
       log.error('Failed to load classrooms:', err);
@@ -174,8 +214,8 @@ function HomePage() {
     useMediaGenerationStore.getState().revokeObjectUrls();
     useMediaGenerationStore.setState({ tasks: {} });
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
-    loadClassrooms();
+    void loadCurrentUser();
+    void loadClassrooms();
   }, []);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -186,12 +226,36 @@ function HomePage() {
   const confirmDelete = async (id: string) => {
     setPendingDeleteId(null);
     try {
-      await deleteStageData(id);
+      await Promise.allSettled([
+        deleteStageData(id),
+        fetch(`/api/classroom?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        }),
+      ]);
       await loadClassrooms();
     } catch (err) {
       log.error('Failed to delete classroom:', err);
       toast.error('Failed to delete classroom');
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      log.warn('Logout request failed:', err);
+    }
+
+    try {
+      localStorage.removeItem('vc-auth-user-id');
+      const { clearDatabase } = await import('@/lib/utils/database');
+      await clearDatabase();
+    } catch (err) {
+      log.warn('Failed to clear local data on logout:', err);
+    }
+
+    router.replace('/auth');
+    router.refresh();
   };
 
   const updateForm = <K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -478,6 +542,30 @@ function HomePage() {
             </>
           )}
         </div>
+
+        {authUser && (
+          <>
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
+            <div className="flex items-center gap-1.5 pl-1">
+              <div className="hidden sm:flex flex-col items-end leading-none px-2">
+                <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">
+                  {authUser.name}
+                </span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 max-w-[140px] truncate">
+                  {authUser.email}
+                </span>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-full text-gray-400 dark:text-gray-500 hover:bg-white dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 hover:shadow-sm transition-all"
+                aria-label="Logout"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </>
+        )}
       </div>
       <SettingsDialog
         open={settingsOpen}

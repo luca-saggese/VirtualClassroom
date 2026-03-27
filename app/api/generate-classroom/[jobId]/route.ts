@@ -1,5 +1,6 @@
 import { type NextRequest } from 'next/server';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { getAuthUserFromRequest } from '@/lib/server/auth';
 import {
   isValidClassroomJobId,
   readClassroomGenerationJob,
@@ -10,6 +11,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ jobId: string }> }) {
   try {
+    const sessionUser = getAuthUserFromRequest(req);
+    if (!sessionUser) {
+      return apiError('INVALID_REQUEST', 401, 'Autenticazione richiesta');
+    }
+
     const { jobId } = await context.params;
 
     if (!isValidClassroomJobId(jobId)) {
@@ -19,6 +25,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ jobId: 
     const job = await readClassroomGenerationJob(jobId);
     if (!job) {
       return apiError('INVALID_REQUEST', 404, 'Classroom generation job not found');
+    }
+    if (job.ownerUserId !== sessionUser.id) {
+      return apiError('INVALID_REQUEST', 403, 'Accesso negato a questo job');
     }
 
     const pollUrl = `${buildRequestOrigin(req)}/api/generate-classroom/${jobId}`;

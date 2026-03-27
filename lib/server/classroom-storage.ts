@@ -36,9 +36,23 @@ export function buildRequestOrigin(req: NextRequest): string {
 
 export interface PersistedClassroomData {
   id: string;
+  ownerUserId: string;
+  ownerEmail: string;
   stage: Stage;
   scenes: Scene[];
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersistedClassroomSummary {
+  id: string;
+  ownerUserId: string;
+  ownerEmail: string;
+  name: string;
+  description?: string;
+  sceneCount: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export function isValidClassroomId(id: string): boolean {
@@ -61,16 +75,23 @@ export async function readClassroom(id: string): Promise<PersistedClassroomData 
 export async function persistClassroom(
   data: {
     id: string;
+    ownerUserId: string;
+    ownerEmail: string;
     stage: Stage;
     scenes: Scene[];
   },
   baseUrl: string,
 ): Promise<PersistedClassroomData & { url: string }> {
+  const now = new Date().toISOString();
+  const existing = await readClassroom(data.id);
   const classroomData: PersistedClassroomData = {
     id: data.id,
+    ownerUserId: data.ownerUserId,
+    ownerEmail: data.ownerEmail,
     stage: data.stage,
     scenes: data.scenes,
-    createdAt: new Date().toISOString(),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
   };
 
   await ensureClassroomsDir();
@@ -81,4 +102,53 @@ export async function persistClassroom(
     ...classroomData,
     url: `${baseUrl}/classroom/${data.id}`,
   };
+}
+
+export async function listClassroomsByOwner(
+  ownerUserId: string,
+): Promise<PersistedClassroomSummary[]> {
+  await ensureClassroomsDir();
+
+  const entries = await fs.readdir(CLASSROOMS_DIR, { withFileTypes: true });
+  const classrooms: Array<PersistedClassroomSummary | null> = await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+      .map(async (entry) => {
+        const content = await fs.readFile(path.join(CLASSROOMS_DIR, entry.name), 'utf-8');
+        const classroom = JSON.parse(content) as PersistedClassroomData;
+        if (classroom.ownerUserId !== ownerUserId) {
+          return null;
+        }
+
+        const summary: PersistedClassroomSummary = {
+          id: classroom.id,
+          ownerUserId: classroom.ownerUserId,
+          ownerEmail: classroom.ownerEmail,
+          name: classroom.stage.name || 'Untitled Stage',
+          description: classroom.stage.description,
+          sceneCount: classroom.scenes.length,
+          createdAt: new Date(classroom.createdAt).getTime(),
+          updatedAt: new Date(classroom.updatedAt || classroom.createdAt).getTime(),
+        };
+
+        return summary;
+      }),
+  );
+
+  return classrooms
+    .filter((classroom): classroom is PersistedClassroomSummary => classroom !== null)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function deleteClassroom(id: string): Promise<boolean> {
+  const filePath = path.join(CLASSROOMS_DIR, `${id}.json`);
+  try {
+    await fs.unlink(filePath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
 }

@@ -26,6 +26,8 @@ export function runClassroomGenerationJob(
 
       const result = await generateClassroom(input, {
         baseUrl,
+        ownerUserId: input.ownerUserId,
+        ownerEmail: input.ownerEmail,
         onProgress: async (progress) => {
           await updateClassroomGenerationJobProgress(jobId, progress);
         },

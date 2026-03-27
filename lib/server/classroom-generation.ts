@@ -33,6 +33,8 @@ const log = createLogger('Classroom');
 
 export interface GenerateClassroomInput {
   requirement: string;
+  ownerUserId?: string;
+  ownerEmail?: string;
   pdfContent?: { text: string; images: string[] };
   language?: string;
   enableWebSearch?: boolean;
@@ -166,6 +168,8 @@ export async function generateClassroom(
   input: GenerateClassroomInput,
   options: {
     baseUrl: string;
+    ownerUserId?: string;
+    ownerEmail?: string;
     onProgress?: (progress: ClassroomGenerationProgress) => Promise<void> | void;
   },
 ): Promise<GenerateClassroomResult> {
@@ -413,6 +417,8 @@ export async function generateClassroom(
   const persisted = await persistClassroom(
     {
       id: stageId,
+      ownerUserId: options.ownerUserId || input.ownerUserId || 'anonymous',
+      ownerEmail: options.ownerEmail || input.ownerEmail || 'unknown@example.com',
       stage,
       scenes,
     },

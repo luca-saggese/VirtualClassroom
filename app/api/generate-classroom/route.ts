@@ -1,6 +1,7 @@
 import { after, type NextRequest } from 'next/server';
 import { nanoid } from 'nanoid';
 import { apiError, apiSuccess } from '@/lib/server/api-response';
+import { getAuthUserFromRequest, getUserById } from '@/lib/server/auth';
 import { type GenerateClassroomInput } from '@/lib/server/classroom-generation';
 import { runClassroomGenerationJob } from '@/lib/server/classroom-job-runner';
 import { createClassroomGenerationJob } from '@/lib/server/classroom-job-store';
@@ -10,9 +11,21 @@ export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
+    const sessionUser = getAuthUserFromRequest(req);
+    if (!sessionUser) {
+      return apiError('INVALID_REQUEST', 401, 'Autenticazione richiesta');
+    }
+
+    const user = await getUserById(sessionUser.id);
+    if (!user) {
+      return apiError('INVALID_REQUEST', 401, 'Sessione non valida');
+    }
+
     const rawBody = (await req.json()) as Partial<GenerateClassroomInput>;
     const body: GenerateClassroomInput = {
       requirement: rawBody.requirement || '',
+      ownerUserId: user.id,
+      ownerEmail: user.email,
       ...(rawBody.pdfContent ? { pdfContent: rawBody.pdfContent } : {}),
       ...(rawBody.language ? { language: rawBody.language } : {}),
       ...(rawBody.enableWebSearch != null ? { enableWebSearch: rawBody.enableWebSearch } : {}),
