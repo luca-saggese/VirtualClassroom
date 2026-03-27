@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,7 @@ async function syncClientUser(user: AuthUser) {
   localStorage.setItem(AUTH_USER_STORAGE_KEY, user.id);
 }
 
-export default function AuthPage() {
+function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/';
@@ -368,5 +368,24 @@ export default function AuthPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function AuthPageFallback() {
+  return (
+    <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_35%),linear-gradient(to_bottom,_rgb(248,250,252),_rgb(226,232,240))] dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.2),_transparent_30%),linear-gradient(to_bottom,_rgb(2,6,23),_rgb(15,23,42))] flex items-center justify-center p-4">
+      <div className="flex items-center gap-3 rounded-2xl border border-white/40 bg-white/85 px-5 py-4 text-sm text-muted-foreground shadow-xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85">
+        <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        Caricamento...
+      </div>
+    </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<AuthPageFallback />}>
+      <AuthPageContent />
+    </Suspense>
   );
 }
