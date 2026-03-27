@@ -56,7 +56,7 @@ const RECENT_OPEN_STORAGE_KEY = 'recentClassroomsOpen';
 interface FormState {
   pdfFile: File | null;
   requirement: string;
-  language: 'zh-CN' | 'en-US';
+  language: 'zh-CN' | 'en-US' | 'it-IT';
   webSearch: boolean;
 }
 
@@ -101,10 +101,15 @@ function HomePage() {
       const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
       const updates: Partial<FormState> = {};
       if (savedWebSearch === 'true') updates.webSearch = true;
-      if (savedLanguage === 'zh-CN' || savedLanguage === 'en-US') {
+      if (savedLanguage === 'zh-CN' || savedLanguage === 'en-US' || savedLanguage === 'it-IT') {
         updates.language = savedLanguage;
       } else {
-        const detected = navigator.language?.startsWith('zh') ? 'zh-CN' : 'en-US';
+        const browserLanguage = navigator.language || '';
+        const detected = browserLanguage.startsWith('zh')
+          ? 'zh-CN'
+          : browserLanguage.startsWith('it')
+            ? 'it-IT'
+            : 'en-US';
         updates.language = detected;
       }
       if (Object.keys(updates).length > 0) {
