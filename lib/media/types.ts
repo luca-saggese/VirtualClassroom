@@ -70,6 +70,7 @@
  * Keep in sync with IMAGE_PROVIDERS registry in constants.ts
  */
 export type ImageProviderId = 'seedream' | 'qwen-image' | 'nano-banana';
+export type ImageProviderId = 'seedream' | 'qwen-image' | 'nano-banana' | 'openrouter';
 // Add new image providers below (uncomment and modify):
 // | 'dall-e'
 // | 'midjourney'

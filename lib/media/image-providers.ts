@@ -12,6 +12,10 @@ import type {
 import { generateWithSeedream, testSeedreamConnectivity } from './adapters/seedream-adapter';
 import { generateWithQwenImage, testQwenImageConnectivity } from './adapters/qwen-image-adapter';
 import { generateWithNanoBanana, testNanoBananaConnectivity } from './adapters/nano-banana-adapter';
+import {
+  generateWithOpenRouterImage,
+  testOpenRouterImageConnectivity,
+} from './adapters/openrouter-image-adapter';
 
 export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
   seedream: {
@@ -66,6 +70,27 @@ export const IMAGE_PROVIDERS: Record<ImageProviderId, ImageProviderConfig> = {
     ],
     supportedAspectRatios: ['16:9', '4:3', '1:1'],
   },
+  openrouter: {
+    id: 'openrouter',
+    name: 'OpenRouter Image',
+    requiresApiKey: true,
+    defaultBaseUrl: 'https://openrouter.ai',
+    models: [
+      {
+        id: 'openai/gpt-image-1',
+        name: 'OpenAI GPT Image 1',
+      },
+      {
+        id: 'google/gemini-2.5-flash-image-preview',
+        name: 'Gemini 2.5 Flash Image Preview',
+      },
+      {
+        id: 'black-forest-labs/flux-1.1-pro',
+        name: 'FLUX 1.1 Pro',
+      },
+    ],
+    supportedAspectRatios: ['16:9', '4:3', '1:1', '9:16'],
+  },
 };
 
 export async function testImageConnectivity(
@@ -78,6 +103,8 @@ export async function testImageConnectivity(
       return testQwenImageConnectivity(config);
     case 'nano-banana':
       return testNanoBananaConnectivity(config);
+    case 'openrouter':
+      return testOpenRouterImageConnectivity(config);
     default:
       return {
         success: false,
@@ -97,6 +124,8 @@ export async function generateImage(
       return generateWithQwenImage(config, options);
     case 'nano-banana':
       return generateWithNanoBanana(config, options);
+    case 'openrouter':
+      return generateWithOpenRouterImage(config, options);
     default:
       throw new Error(`Unsupported image provider: ${config.providerId}`);
   }
