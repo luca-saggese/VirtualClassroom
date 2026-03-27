@@ -31,7 +31,7 @@ function runBuild() {
 }
 
 async function start() {
-  //await runBuild();
+  await runBuild();
 
   const app = next({ dev });
   const handle = app.getRequestHandler();
