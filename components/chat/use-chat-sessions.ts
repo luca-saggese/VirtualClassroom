@@ -547,7 +547,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
     return sessionId;
   }, []);
 
-  const clearWhiteboardForNewQA = useCallback(() => {
+  const clearWhiteboardForNewLiveSession = useCallback(() => {
     const stage = useStageStore.getState().stage;
     const whiteboard = stage?.whiteboard?.at(-1);
     if (!whiteboard || whiteboard.elements.length === 0) return;
@@ -555,14 +555,14 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
     const stageAPI = createStageAPI(useStageStore);
     const result = stageAPI.whiteboard.update({ elements: [] }, whiteboard.id);
     if (!result.success) {
-      log.warn(`[ChatArea] Failed to clear whiteboard before Q&A: ${result.error}`);
+      log.warn(`[ChatArea] Failed to clear whiteboard before live session: ${result.error}`);
       return;
     }
 
     useCanvasStore.getState().setWhiteboardOpen(false);
     useCanvasStore.getState().setWhiteboardClearing(false);
     useWhiteboardHistoryStore.getState().clearHistory();
-    log.info('[ChatArea] Cleared previous whiteboard before starting Q&A');
+    log.info('[ChatArea] Cleared previous whiteboard before starting live session');
   }, []);
 
   /**
@@ -936,7 +936,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         for (const session of activeQAOrDiscussion) {
           await endSession(session.id);
         }
-        clearWhiteboardForNewQA();
+        clearWhiteboardForNewLiveSession();
         sessionId = await createSession('qa', 'Q&A');
       }
 
@@ -1091,7 +1091,15 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         }
       }
     },
-    [activeSessionId, isStreaming, createSession, endSession, runAgentLoop, t],
+    [
+      activeSessionId,
+      isStreaming,
+      createSession,
+      endSession,
+      runAgentLoop,
+      t,
+      clearWhiteboardForNewLiveSession,
+    ],
   );
 
   /**
@@ -1124,6 +1132,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
       for (const session of activeQAOrDiscussion) {
         await endSession(session.id);
       }
+      clearWhiteboardForNewLiveSession();
 
       const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const now = Date.now();
@@ -1251,7 +1260,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- t is stable from i18n context
-    [endSession, runAgentLoop],
+    [endSession, runAgentLoop, clearWhiteboardForNewLiveSession],
   );
 
   /**

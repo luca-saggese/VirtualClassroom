@@ -42,7 +42,7 @@ export function Stage({
 }: {
   onRetryOutline?: (outlineId: string) => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { mode, getCurrentScene, scenes, currentSceneId, setCurrentSceneId, generatingOutlines } =
     useStageStore();
   const failedOutlines = useStageStore.use.failedOutlines();
@@ -130,6 +130,12 @@ export function Stage({
   const lectureSessionIdRef = useRef<string | null>(null);
   const lectureActionCounterRef = useRef(0);
   const discussionAbortRef = useRef<AbortController | null>(null);
+  const liveTTSQueueRef = useRef<string[]>([]);
+  const liveTTSSpeakingRef = useRef(false);
+  const liveTTSFullTextRef = useRef('');
+  const liveTTSSpokenOffsetRef = useRef(0);
+  const liveTTSLastAgentRef = useRef<string | null>(null);
+  const liveTTSVoicesRef = useRef<SpeechSynthesisVoice[] | null>(null);
   // Guard to prevent double flash when manual stop triggers onDiscussionEnd
   const manualStopRef = useRef(false);
   // Monotonic counter incremented on each scene switch — used to discard stale SSE callbacks
@@ -148,6 +154,14 @@ export function Stage({
    */
   const doSoftPause = useCallback(async () => {
     await chatAreaRef.current?.softPauseActiveSession();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    liveTTSQueueRef.current = [];
+    liveTTSSpeakingRef.current = false;
+    liveTTSFullTextRef.current = '';
+    liveTTSSpokenOffsetRef.current = 0;
+    liveTTSLastAgentRef.current = null;
     // Append "..." to live speech to show interruption in roundtable bubble.
     // Only annotate when there's actual text being interrupted — during pure
     // director-thinking (prev is null, no agent assigned), leave liveSpeech
@@ -208,6 +222,15 @@ export function Stage({
    */
   const doSessionCleanup = useCallback(() => {
     const activeType = chatSessionType;
+
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    liveTTSQueueRef.current = [];
+    liveTTSSpeakingRef.current = false;
+    liveTTSFullTextRef.current = '';
+    liveTTSSpokenOffsetRef.current = 0;
+    liveTTSLastAgentRef.current = null;
 
     // Engine cleanup — guard to avoid double flash from onDiscussionEnd
     manualStopRef.current = true;
@@ -433,6 +456,9 @@ export function Stage({
       if (engineRef.current) {
         engineRef.current.stop();
       }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       audioPlayer.destroy();
       if (discussionAbortRef.current) {
         discussionAbortRef.current.abort();
@@ -441,7 +467,10 @@ export function Stage({
   }, []);
 
   // Sync mute state from settings store to audioPlayer
+  const ttsEnabled = useSettingsStore((s) => s.ttsEnabled);
   const ttsMuted = useSettingsStore((s) => s.ttsMuted);
+  const ttsVoice = useSettingsStore((s) => s.ttsVoice);
+  const ttsSpeed = useSettingsStore((s) => s.ttsSpeed);
   useEffect(() => {
     audioPlayerRef.current.setMuted(ttsMuted);
   }, [ttsMuted]);
@@ -459,6 +488,175 @@ export function Stage({
   useEffect(() => {
     audioPlayerRef.current.setPlaybackRate(playbackSpeed);
   }, [playbackSpeed]);
+
+  const resetLiveTTSState = useCallback(() => {
+    liveTTSQueueRef.current = [];
+    liveTTSSpeakingRef.current = false;
+    liveTTSFullTextRef.current = '';
+    liveTTSSpokenOffsetRef.current = 0;
+    liveTTSLastAgentRef.current = null;
+  }, []);
+
+  const cancelLiveTTS = useCallback(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    resetLiveTTSState();
+  }, [resetLiveTTSState]);
+
+  const ensureLiveTTSVoicesLoaded = useCallback(async (): Promise<SpeechSynthesisVoice[]> => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return [];
+    if (liveTTSVoicesRef.current && liveTTSVoicesRef.current.length > 0) {
+      return liveTTSVoicesRef.current;
+    }
+
+    let voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      liveTTSVoicesRef.current = voices;
+      return voices;
+    }
+
+    await new Promise<void>((resolve) => {
+      const onVoicesChanged = () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        resolve();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
+      setTimeout(() => {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
+        resolve();
+      }, 1500);
+    });
+
+    voices = window.speechSynthesis.getVoices();
+    liveTTSVoicesRef.current = voices;
+    return voices;
+  }, []);
+
+  const resolveLiveTTSLang = useCallback(
+    (text: string): string => {
+      const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
+      const cjkRatio = text.length > 0 ? cjkChars / text.length : 0;
+      if (cjkRatio > 0.15) return 'zh-CN';
+      if (locale === 'it-IT') return 'it-IT';
+      return 'en-US';
+    },
+    [locale],
+  );
+
+  const speakNextLiveChunk = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    if (liveTTSSpeakingRef.current) return;
+    if (!ttsEnabled || ttsMuted) {
+      liveTTSQueueRef.current = [];
+      return;
+    }
+
+    const chunk = liveTTSQueueRef.current.shift();
+    if (!chunk) return;
+
+    liveTTSSpeakingRef.current = true;
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    utterance.rate = Math.max(0.1, Math.min(10, ttsSpeed ?? 1));
+    utterance.volume = ttsMuted ? 0 : (ttsVolume ?? 1);
+
+    const voices = await ensureLiveTTSVoicesLoaded();
+    if (ttsVoice && ttsVoice !== 'default') {
+      const voice = voices.find((v) => v.voiceURI === ttsVoice);
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      }
+    }
+    if (!utterance.voice) {
+      utterance.lang = resolveLiveTTSLang(chunk);
+    }
+
+    utterance.onend = () => {
+      liveTTSSpeakingRef.current = false;
+      void speakNextLiveChunk();
+    };
+    utterance.onerror = () => {
+      liveTTSSpeakingRef.current = false;
+      void speakNextLiveChunk();
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, [
+    ensureLiveTTSVoicesLoaded,
+    resolveLiveTTSLang,
+    ttsEnabled,
+    ttsMuted,
+    ttsSpeed,
+    ttsVolume,
+    ttsVoice,
+  ]);
+
+  const feedLiveQATTS = useCallback(
+    (text: string | null, agentId: string | null, sessionType: string | null) => {
+      if (sessionType !== 'qa') {
+        if (
+          liveTTSQueueRef.current.length > 0 ||
+          liveTTSSpeakingRef.current ||
+          liveTTSFullTextRef.current
+        ) {
+          cancelLiveTTS();
+        }
+        return;
+      }
+
+      if (!ttsEnabled || ttsMuted) {
+        cancelLiveTTS();
+        return;
+      }
+
+      if (text === null) {
+        const tail = liveTTSFullTextRef.current.slice(liveTTSSpokenOffsetRef.current).trim();
+        if (tail) liveTTSQueueRef.current.push(tail);
+        liveTTSFullTextRef.current = '';
+        liveTTSSpokenOffsetRef.current = 0;
+        liveTTSLastAgentRef.current = null;
+        void speakNextLiveChunk();
+        return;
+      }
+
+      if (liveTTSLastAgentRef.current && agentId && liveTTSLastAgentRef.current !== agentId) {
+        const tail = liveTTSFullTextRef.current.slice(liveTTSSpokenOffsetRef.current).trim();
+        if (tail) liveTTSQueueRef.current.push(tail);
+        liveTTSFullTextRef.current = '';
+        liveTTSSpokenOffsetRef.current = 0;
+      }
+
+      liveTTSLastAgentRef.current = agentId;
+      liveTTSFullTextRef.current = text;
+
+      const delta = text.slice(liveTTSSpokenOffsetRef.current);
+      if (!delta) return;
+
+      const punctuationMatches = [...delta.matchAll(/[.!?。！？\n]/g)];
+      if (punctuationMatches.length === 0) return;
+
+      const lastMatch = punctuationMatches[punctuationMatches.length - 1];
+      const boundary = (lastMatch?.index ?? -1) + 1;
+      if (boundary <= 0) return;
+
+      const chunk = delta.slice(0, boundary).trim();
+      if (chunk) liveTTSQueueRef.current.push(chunk);
+      liveTTSSpokenOffsetRef.current += boundary;
+      void speakNextLiveChunk();
+    },
+    [cancelLiveTTS, speakNextLiveChunk, ttsEnabled, ttsMuted],
+  );
+
+  useEffect(() => {
+    feedLiveQATTS(liveSpeech, speakingAgentId, chatSessionType);
+  }, [feedLiveQATTS, liveSpeech, speakingAgentId, chatSessionType]);
+
+  useEffect(() => {
+    if (!ttsEnabled || ttsMuted) {
+      cancelLiveTTS();
+    }
+  }, [ttsEnabled, ttsMuted, cancelLiveTTS]);
 
   /**
    * Handle discussion SSE — POST /api/chat and push events to engine
