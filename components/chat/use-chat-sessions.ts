@@ -15,10 +15,12 @@ import { useStageStore } from '@/lib/store';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
 import { useUserProfileStore } from '@/lib/store/user-profile';
+import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { useAgentRegistry } from '@/lib/orchestration/registry/store';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { getCurrentModelConfig } from '@/lib/utils/model-config';
 import { USER_AVATAR } from '@/lib/types/roundtable';
+import { createStageAPI } from '@/lib/api/stage-api';
 import { processSSEStream } from './process-sse-stream';
 import { StreamBuffer } from '@/lib/buffer/stream-buffer';
 import type { AgentStartItem, ActionItem } from '@/lib/buffer/stream-buffer';
@@ -545,6 +547,24 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
     return sessionId;
   }, []);
 
+  const clearWhiteboardForNewQA = useCallback(() => {
+    const stage = useStageStore.getState().stage;
+    const whiteboard = stage?.whiteboard?.at(-1);
+    if (!whiteboard || whiteboard.elements.length === 0) return;
+
+    const stageAPI = createStageAPI(useStageStore);
+    const result = stageAPI.whiteboard.update({ elements: [] }, whiteboard.id);
+    if (!result.success) {
+      log.warn(`[ChatArea] Failed to clear whiteboard before Q&A: ${result.error}`);
+      return;
+    }
+
+    useCanvasStore.getState().setWhiteboardOpen(false);
+    useCanvasStore.getState().setWhiteboardClearing(false);
+    useWhiteboardHistoryStore.getState().clearHistory();
+    log.info('[ChatArea] Cleared previous whiteboard before starting Q&A');
+  }, []);
+
   /**
    * End a chat session.
    * For QA/Discussion sessions with active streaming, appends "..." + interrupted marker.
@@ -916,6 +936,7 @@ export function useChatSessions(options: UseChatSessionsOptions = {}) {
         for (const session of activeQAOrDiscussion) {
           await endSession(session.id);
         }
+        clearWhiteboardForNewQA();
         sessionId = await createSession('qa', 'Q&A');
       }
 
